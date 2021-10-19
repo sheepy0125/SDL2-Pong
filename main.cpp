@@ -25,6 +25,52 @@ bool running = true;
 #define FONT_SIZE 32
 #define FONT_PATH "assets/Peepo.ttf"
 
+/* Player and paddles */
+SDL_Rect scoreBoard;
+SDL_Rect leftPaddle;
+int leftScore;
+SDL_Rect rightPaddle;
+int rightScore;
+SDL_Rect ball; /* TODO: turn into a circle */
+float velX;
+float velY;
+string score;
+bool leftPlayerTurn;
+
+/* ======================= *\
+|* Draw text to scoreboard *|
+\* ======================= */
+int drawTextToScoreboard(string text, int x, int y) {
+    SDL_Surface *surface;
+    SDL_Texture *texture;
+
+    /* Ensure font is loaded */
+    if (font == NULL) {
+        cerr << "Attempted to draw text, but font is null";
+        return 1;
+    }
+
+    /* Create surface and texture */
+    const char *textString = text.c_str();
+    surface = TTF_RenderText_Solid(font, textString, color);
+    texture = SDL_CreateTextureFromSurface(renderer, surface);
+
+    /* Update scoreboard */
+    scoreBoard.w = surface->w;
+    scoreBoard.h = surface->h;
+    scoreBoard.x = x - scoreBoard.w;
+    scoreBoard.y = y - scoreBoard.h;
+
+    /* We don't have a rect here (not needed), hence the NULL */
+    SDL_RenderCopy(renderer, texture, NULL, &scoreBoard);
+
+    /* Cleanup */
+    SDL_FreeSurface(surface);
+    SDL_DestroyTexture(texture);
+
+    return 0;
+}
+
 /* ====== *\
 |* Update *|
 \* ====== */
@@ -36,11 +82,7 @@ void update(void) { return; }
 void input(void) {
     /* Pull events */
     SDL_Event event;
-    /* I don't want to have to use auto* for this, but
-     * when using Uint8* it gives a stupid warning saying
-     * "cannot convert Uint8* (*)(int*) to Uint8*", so
-     * I'm using auto to avoid that */
-    const auto *keystates = SDL_GetKeyboardState(NULL);
+    const Uint8 *keystates = SDL_GetKeyboardState(NULL);
 
     /* Events */
     while (SDL_PollEvent(&event)) {
@@ -91,11 +133,11 @@ void render(void) {
 int main(void) {
     /* Create window with error handling */
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
-        cout << "Failed to initialize SDL" << endl;
+        cerr << "Failed to initialize SDL" << endl;
         return 1;
     }
     if (SDL_CreateWindowAndRenderer(WIDTH, HEIGHT, 0, &window, &renderer) < 0) {
-        cout << "Failed to create window" << endl;
+        cerr << "Failed to create window" << endl;
         return 1;
     }
     static int lastTime = 0;
