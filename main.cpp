@@ -25,8 +25,8 @@ bool running = true;
 #define FONT_SIZE 32
 #define FONT_PATH "assets/Peepo.ttf"
 #define BALL_SIZE 16
-#define BALL_START_SPEED 8
-#define BALL_MAX_SPEED 32
+#define BALL_START_SPEED 2
+#define BALL_MAX_SPEED 16
 #define BALL_SPEED_INC 2
 #define PADDLE_SPEED 16
 #define PADDLE_WIDTH 12
@@ -115,6 +115,22 @@ void ballMovement(void) {
     return;
 }
 
+/* ================= *\
+|* Computer movement *|
+\* ================= */
+void computerMovement(void) {
+    /* Go to the ball */
+    /* Need to go higher */
+    if (ball.y < rightPaddle.y)
+        rightPaddle.y -= PADDLE_SPEED;
+
+    /* Need to go lower */
+    if (ball.y > rightPaddle.y)
+        rightPaddle.y += PADDLE_SPEED;
+
+    return;
+}
+
 /* ======================= *\
 |* Ball collision checking *|
 \* ======================= */
@@ -158,6 +174,7 @@ void update(void) {
     else if (rightPaddle.y <= 0)
         rightPaddle.y = 0;
 
+    computerMovement();
     ballMovement();
     ballCollisionCheck();
 
