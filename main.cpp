@@ -26,13 +26,14 @@ bool running = true;
 #define FONT_SIZE 32
 #define FONT_PATH "assets/Peepo.ttf"
 #define BALL_SIZE 16
-#define BALL_START_SPEED 4
-#define BALL_MAX_SPEED 10
-#define BALL_SPEED_INC 2
+#define BALL_START_SPEED 8
+#define BALL_MAX_SPEED 16
+#define BALL_SPEED_INC 1
 #define PADDLE_SPEED 16
 #define PADDLE_WIDTH 12
 #define PADDLE_HEIGHT (HEIGHT / 8)
 #define PADDLE_OFFSET 32
+#define COMPUTER_PADDLE_SPEED (PADDLE_SPEED / 4)
 
 /* Ball and paddles */
 SDL_Rect scoreBoard;
@@ -45,6 +46,15 @@ int ballSpeed = BALL_START_SPEED;
 float ballVelX, ballVelY = ballSpeed;
 string score;
 bool leftPlayerTurn;
+
+/* ======================= *\
+|* Turn bool into -1 or +1 *|
+\* ======================= */
+int turnPositiveOrNegative(bool theBool) {
+    if (theBool)
+        return 1;
+    return -1;
+}
 
 /* ======================= *\
 |* Draw text to scoreboard *|
@@ -123,12 +133,12 @@ void ballMovement(void) {
 void computerMovement(void) {
     /* Go to the ball */
     /* Need to go higher */
-    if ((ball.y + (BALL_SIZE / 2)) < (rightPaddle.y + (PADDLE_HEIGHT / 2)))
-        rightPaddle.y -= PADDLE_SPEED;
+    if (ball.y < (rightPaddle.y + (PADDLE_HEIGHT / 2)))
+        rightPaddle.y -= COMPUTER_PADDLE_SPEED;
 
     /* Need to go lower */
-    if ((ball.y + (BALL_SIZE / 2)) > (rightPaddle.y + (PADDLE_HEIGHT / 2)))
-        rightPaddle.y += PADDLE_SPEED;
+    if (ball.y > (rightPaddle.y + (PADDLE_HEIGHT / 2)))
+        rightPaddle.y += COMPUTER_PADDLE_SPEED;
 
     return;
 }
@@ -144,11 +154,9 @@ double getOppositeAngle(int paddleY) {
     /* Turn the relative Y value to be a number from 0-1 or 1-2, with the
      * turning point being halfway through the paddle */
     double normalized_y = rel_y / (PADDLE_HEIGHT / 2);
-    /* Turn that into an angle using glorious π */
-    double angle =
-        normalized_y * (5 * PI / 12); /* Emperical numbers, "it just works" */
-
-    cout << "The opposite angle is " << angle << "!" << endl;
+    /* Turn that into an angle using glorious π
+     * The maximum angle will be 75° */
+    double angle = normalized_y * (5 * PI / 12);
 
     return angle;
 }
@@ -163,28 +171,34 @@ void ballCollisionCheck(void) {
     /* Off screen */
     else if ((ball.x - BALL_SIZE) > WIDTH) { /* left scored */
         serve();
+        leftScore++;
     } else if (ball.x < 0) { /* right scored */
         serve();
+        rightScore++;
     }
 
+    double oppositeAngle;
+
     /* Touching paddles */
-    if (SDL_HasIntersection(&ball, &leftPaddle))
-        ballVelY = ballSpeed * -sin(getOppositeAngle(leftPaddle.y));
-    else if (SDL_HasIntersection(&ball, &rightPaddle))
-        ballVelY = ballSpeed * -sin(getOppositeAngle(rightPaddle.y));
-    else
+    if (SDL_HasIntersection(&ball, &leftPaddle)) {
+        oppositeAngle = getOppositeAngle(leftPaddle.y);
+        leftPlayerTurn = false;
+    } else if (SDL_HasIntersection(&ball, &rightPaddle)) {
+        oppositeAngle = -getOppositeAngle(rightPaddle.y);
+        leftPlayerTurn = true;
+    } else
         return;
 
     /* Touched one of the paddles */
     ballSpeed += BALL_SPEED_INC;
-    /* Get the X velocity based off of the speed - Y velocity, and reverse it */
-    /* hey wait a second isn't this what cos does */
-    ballVelX = ((ballSpeed - abs(ballVelY)) * (abs(ballVelX) / -ballVelX));
     if (ballSpeed > BALL_MAX_SPEED)
         ballSpeed = BALL_MAX_SPEED;
 
-    /* Switch turn */
-    leftPlayerTurn = !leftPlayerTurn;
+    /* Velocities */
+    ballVelX = turnPositiveOrNegative(!leftPlayerTurn) * ballSpeed *
+               cos(oppositeAngle);
+    ballVelY = (sin(oppositeAngle) * ballSpeed);
+    // ballVelY = (ballSpeed - abs(ballVelX)); /* Too slow, see updated */
 
     return;
 }
