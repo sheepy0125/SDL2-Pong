@@ -20,13 +20,14 @@ int timerFPS;
 int fps;
 bool running = true;
 /* Globals */
+#define PI 3.14159265358979323846
 #define WIDTH 720
 #define HEIGHT 720
 #define FONT_SIZE 32
 #define FONT_PATH "assets/Peepo.ttf"
 #define BALL_SIZE 16
-#define BALL_START_SPEED 2
-#define BALL_MAX_SPEED 16
+#define BALL_START_SPEED 4
+#define BALL_MAX_SPEED 10
 #define BALL_SPEED_INC 2
 #define PADDLE_SPEED 16
 #define PADDLE_WIDTH 12
@@ -86,21 +87,22 @@ int drawTextToScoreboard(string text) {
 |* Serve *|
 \* ===== */
 void serve(void) {
-    /* Reset paddle Ys*/
-    leftPaddle.y = rightPaddle.y = (HEIGHT / 2) - (leftPaddle.h / 2);
+    /* Reset paddles*/
+    leftPaddle.y = rightPaddle.y = (HEIGHT / 2) - (PADDLE_HEIGHT / 2);
 
     /* Reset ball */
+    ballSpeed = BALL_START_SPEED;
     ball.x = (WIDTH / 2) - (BALL_SIZE / 2);
     ball.y = (HEIGHT / 2) - (BALL_SIZE / 2);
-    /* Ball velocity */
-    if (leftPlayerTurn) {
-        ballVelX = ballSpeed;
-    } else {
-        ballVelX = -ballSpeed;
-    }
+    ballVelY = 0;
 
-    /* TODO: turn based on who won
-     * but for now, just switch turn */
+    /* Ball velocity */
+    if (leftPlayerTurn)
+        ballVelX = ballSpeed;
+    else
+        ballVelX = -ballSpeed;
+
+    /* Switch turn (whoever's turn currently is the person who won */
     leftPlayerTurn = !leftPlayerTurn;
 
     return;
@@ -121,14 +123,34 @@ void ballMovement(void) {
 void computerMovement(void) {
     /* Go to the ball */
     /* Need to go higher */
-    if (ball.y < rightPaddle.y)
+    if ((ball.y + (BALL_SIZE / 2)) < (rightPaddle.y + (PADDLE_HEIGHT / 2)))
         rightPaddle.y -= PADDLE_SPEED;
 
     /* Need to go lower */
-    if (ball.y > rightPaddle.y)
+    if ((ball.y + (BALL_SIZE / 2)) > (rightPaddle.y + (PADDLE_HEIGHT / 2)))
         rightPaddle.y += PADDLE_SPEED;
 
     return;
+}
+
+/* ================== *\
+|* Get opposite angle *|
+\* ================== */
+double getOppositeAngle(int paddleY) {
+    /* Gets the opposite angle of where the ball hit the paddle */
+
+    /* What Y value on the paddle is the ball touching (from 0-PADDLE_HEIGHT) */
+    double rel_y = (paddleY + (PADDLE_HEIGHT / 2)) - (ball.y + (BALL_SIZE / 2));
+    /* Turn the relative Y value to be a number from 0-1 or 1-2, with the
+     * turning point being halfway through the paddle */
+    double normalized_y = rel_y / (PADDLE_HEIGHT / 2);
+    /* Turn that into an angle using glorious π */
+    double angle =
+        normalized_y * (5 * PI / 12); /* Emperical numbers, "it just works" */
+
+    cout << "The opposite angle is " << angle << "!" << endl;
+
+    return angle;
 }
 
 /* ======================= *\
@@ -136,22 +158,34 @@ void computerMovement(void) {
 \* ======================= */
 void ballCollisionCheck(void) {
     /* Top or bottom */
-    if (ball.y <= 0 || ball.y >= HEIGHT)
+    if (ball.y <= 0 || (ball.y + BALL_SIZE) >= HEIGHT)
         ballVelY *= -1;
-    /* Touching paddles */
-    if (SDL_HasIntersection(&ball, &leftPaddle) ||  /* left */
-        SDL_HasIntersection(&ball, &rightPaddle)) { /* right */
-        ballVelX *= -1;
-        ballSpeed += BALL_SPEED_INC;
-        if (ballSpeed > BALL_MAX_SPEED)
-            ballSpeed = BALL_MAX_SPEED;
-    }
     /* Off screen */
     else if ((ball.x - BALL_SIZE) > WIDTH) { /* left scored */
         serve();
     } else if (ball.x < 0) { /* right scored */
         serve();
     }
+
+    /* Touching paddles */
+    if (SDL_HasIntersection(&ball, &leftPaddle))
+        ballVelY = ballSpeed * -sin(getOppositeAngle(leftPaddle.y));
+    else if (SDL_HasIntersection(&ball, &rightPaddle))
+        ballVelY = ballSpeed * -sin(getOppositeAngle(rightPaddle.y));
+    else
+        return;
+
+    /* Touched one of the paddles */
+    ballSpeed += BALL_SPEED_INC;
+    /* Get the X velocity based off of the speed - Y velocity, and reverse it */
+    /* hey wait a second isn't this what cos does */
+    ballVelX = ((ballSpeed - abs(ballVelY)) * (abs(ballVelX) / -ballVelX));
+    if (ballSpeed > BALL_MAX_SPEED)
+        ballSpeed = BALL_MAX_SPEED;
+
+    /* Switch turn */
+    leftPlayerTurn = !leftPlayerTurn;
+
     return;
 }
 
@@ -174,7 +208,10 @@ void update(void) {
     else if (rightPaddle.y <= 0)
         rightPaddle.y = 0;
 
-    computerMovement();
+    /* Only move computer paddle when it's their turn */
+    if (!leftPlayerTurn)
+        computerMovement();
+
     ballMovement();
     ballCollisionCheck();
 
@@ -267,7 +304,7 @@ int main(void) {
     leftScore = rightScore = 0;
     leftPaddle.x = PADDLE_OFFSET;
     leftPaddle.h = PADDLE_HEIGHT;
-    leftPaddle.y = (HEIGHT / 2) - (leftPaddle.h / 2); /* serve(); */
+    leftPaddle.y = (HEIGHT / 2) - (PADDLE_HEIGHT / 2); /* serve(); */
     leftPaddle.w = PADDLE_WIDTH;
     rightPaddle = leftPaddle; /* Right paddle is almost the same as
                                  the left paddle except for position */
